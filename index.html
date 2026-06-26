@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Budget</title>
+<style>
+:root{
+  --bg:#f5f5f7;--card:#fff;--card2:#f5f5f7;
+  --text:#1d1d1f;--text2:#6e6e73;--text3:#aeaeb2;
+  --line:rgba(0,0,0,0.08);--line2:rgba(0,0,0,0.05);
+  --accent:#0071e3;--danger:#ff3b30;--success:#34c759;
+  --r:16px;--r2:26px;
+  --c-food:#30d158;--c-transit:#0a84ff;--c-biz:#bf5af2;
+  --c-net:#32ade6;--c-rent:#ff9f0a;--c-other:#8e8e93;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bot:env(safe-area-inset-bottom,0px);
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#000;--card:#1c1c1e;--card2:#2c2c2e;
+    --text:#f5f5f7;--text2:#aeaeb2;--text3:#636366;
+    --line:rgba(255,255,255,0.1);--line2:rgba(255,255,255,0.05);
+    --accent:#0a84ff;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg)}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",sans-serif;
+  color:var(--text);-webkit-font-smoothing:antialiased}
+
+/* ── screen stack ── */
+#stack{position:fixed;inset:0;overflow:hidden}
+.screen{
+  position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  background:var(--bg);
+  transition:transform .38s cubic-bezier(.4,0,.2,1),opacity .38s cubic-bezier(.4,0,.2,1);
+  will-change:transform;
+}
+.screen.below{transform:translateX(-28%);opacity:.6;pointer-events:none}
+.screen.above{transform:translateX(100%);pointer-events:none}
+.screen.active{transform:translateX(0);opacity:1;pointer-events:auto}
+
+/* ── setup ── */
+#s-setup{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:40px 24px;min-height:100%}
+.setup-card{background:var(--card);border-radius:var(--r2);padding:36px 28px;width:100%;max-width:420px}
+.setup-icon{width:64px;height:64px;border-radius:18px;background:var(--accent);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 20px;color:#fff}
+.setup-icon svg{width:34px;height:34px}
+.setup-card h1{font-size:26px;font-weight:700;text-align:center;margin-bottom:6px}
+.setup-card p{font-size:14px;color:var(--text2);text-align:center;line-height:1.55;margin-bottom:28px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:13px;font-weight:600;color:var(--text2);margin-bottom:7px}
+.field input{width:100%;font-family:inherit;font-size:16px;color:var(--text);
+  background:var(--card2);border:0.5px solid var(--line);border-radius:12px;
+  padding:13px 14px;-webkit-appearance:none;transition:border-color .2s}
+.field input:focus{outline:none;border-color:var(--accent)}
+.note{font-size:12px;color:var(--text3);line-height:1.5;margin-top:8px}
+.btn{width:100%;font-family:inherit;font-size:17px;font-weight:600;padding:15px;
+  border-radius:14px;border:none;background:var(--accent);color:#fff;cursor:pointer;
+  transition:transform .15s,opacity .15s;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.4;pointer-events:none}
+.btn.ghost{background:var(--card2);color:var(--text);border:0.5px solid var(--line)}
+.err{background:rgba(255,59,48,.1);color:var(--danger);font-size:13px;font-weight:500;
+  padding:10px 14px;border-radius:10px;margin-bottom:10px;display:none}
+.err.show{display:block}
+
+/* ── home ── */
+#s-home{display:flex;flex-direction:column;align-items:stretch;
+  padding:calc(var(--safe-top) + 52px) 22px calc(var(--safe-bot) + 40px)}
+.home-top{flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px}
+
+.hero{background:var(--accent);border-radius:var(--r2);padding:32px 28px;color:#fff;position:relative;overflow:hidden}
+.hero.over{background:var(--danger)}
+.hero .sync-row{display:flex;align-items:center;gap:7px;margin-bottom:18px;opacity:.75}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.9)}
+.sync-dot.busy{animation:blink 1s infinite}
+.sync-dot.err{background:rgba(255,100,80,1)}
+@keyframes blink{50%{opacity:.2}}
+.hero .lbl{font-size:14px;font-weight:500;opacity:.75;margin-bottom:6px}
+.hero .big{font-size:56px;font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.hero .sub{font-size:14px;opacity:.7;margin-top:10px;font-variant-numeric:tabular-nums;line-height:1.5}
+.hero .cycle{font-size:12px;opacity:.55;margin-top:6px}
+.hero-err{background:rgba(255,59,48,.12);color:var(--danger);font-size:13px;font-weight:500;
+  padding:10px 14px;border-radius:12px;display:none}
+.hero-err.show{display:block}
+
+.home-btns{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.home-btn{
+  background:var(--card);border:0.5px solid var(--line);border-radius:var(--r2);
+  padding:22px 18px;display:flex;flex-direction:column;align-items:flex-start;gap:10px;
+  cursor:pointer;font-family:inherit;transition:transform .18s cubic-bezier(.4,0,.2,1),background .15s;
+  text-align:left;
+}
+.home-btn:active{transform:scale(.96)}
+.home-btn .hb-ic{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;color:#fff}
+.home-btn .hb-ic svg{width:22px;height:22px;stroke-width:1.7}
+.home-btn .hb-title{font-size:16px;font-weight:700;color:var(--text)}
+.home-btn .hb-sub{font-size:12px;color:var(--text2);margin-top:2px;line-height:1.4}
+.home-btn .hb-arr{margin-top:auto;color:var(--text3)}
+.home-btn .hb-arr svg{width:16px;height:16px;stroke-width:2}
+
+.home-settings{margin-top:14px;display:flex;justify-content:center}
+.settings-btn{background:none;border:none;color:var(--text3);font-family:inherit;font-size:13px;
+  font-weight:500;cursor:pointer;display:flex;align-items:center;gap:5px;padding:8px 12px}
+.settings-btn svg{width:15px;height:15px;stroke-width:1.8}
+
+/* ── nav bar (back) ── */
+.topbar{
+  position:sticky;top:0;z-index:10;
+  background:rgba(245,245,247,.85);backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border-bottom:0.5px solid var(--line);
+  padding:calc(var(--safe-top) + 10px) 16px 10px;
+  display:flex;align-items:center;gap:8px;
+}
+@media(prefers-color-scheme:dark){.topbar{background:rgba(0,0,0,.8)}}
+.back-btn{background:none;border:none;color:var(--accent);font-family:inherit;font-size:17px;
+  font-weight:500;cursor:pointer;display:flex;align-items:center;gap:3px;padding:6px 8px 6px 2px}
+.back-btn svg{width:20px;height:20px;stroke-width:2}
+.topbar-title{font-size:17px;font-weight:600;flex:1}
+.topbar-action{background:none;border:none;color:var(--accent);font-family:inherit;
+  font-size:15px;font-weight:600;cursor:pointer;padding:6px 4px}
+
+/* ── overview screen ── */
+.ov-wrap{padding:0 16px calc(var(--safe-bot)+32px)}
+.ov-summary{background:var(--accent);border-radius:var(--r2);padding:24px 22px 20px;
+  color:#fff;margin:14px 0}
+.ov-summary.over{background:var(--danger)}
+.ov-summary .lbl{font-size:13px;opacity:.75;margin-bottom:4px;font-weight:500}
+.ov-summary .big{font-size:44px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
+.ov-summary .sub{font-size:14px;opacity:.7;margin-top:8px;font-variant-numeric:tabular-nums}
+
+/* donut */
+.chart-card{background:var(--card);border-radius:var(--r2);padding:22px;margin-bottom:14px}
+.chart-inner{display:flex;align-items:center;gap:20px}
+.legend{flex:1;display:flex;flex-direction:column;gap:10px}
+.leg-item{display:flex;align-items:center;gap:9px;font-size:13px}
+.leg-dot{width:10px;height:10px;border-radius:3px;flex:none}
+.leg-name{flex:1;color:var(--text);font-weight:500}
+.leg-pct{color:var(--text2);font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
+
+/* cat cards */
+.cats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+@media(max-width:360px){.cats-grid{grid-template-columns:1fr}}
+.cat-card{background:var(--card);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px}
+.cat-head{display:flex;align-items:center;gap:10px}
+.cat-ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none;color:#fff}
+.cat-ic svg{width:18px;height:18px;stroke-width:1.8}
+.cat-name{font-size:14px;font-weight:600;flex:1}
+.cat-rem{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+.cat-rem.over{color:var(--danger)}
+.cat-bar{height:5px;border-radius:99px;background:var(--card2);overflow:hidden}
+.cat-bar i{display:block;height:100%;border-radius:99px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.cat-meta{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);font-variant-numeric:tabular-nums}
+
+/* tx list */
+.sec{font-size:17px;font-weight:700;padding:4px 0 10px;letter-spacing:-.01em}
+.tx-list{background:var(--card);border-radius:var(--r);overflow:hidden;margin-bottom:14px}
+.tx-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:0.5px solid var(--line2)}
+.tx-row:last-child{border-bottom:none}
+.tx-ic{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:none;color:#fff}
+.tx-ic svg{width:18px;height:18px;stroke-width:1.8}
+.tx-info{flex:1;min-width:0}
+.tx-t{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx-s{font-size:12px;color:var(--text2);margin-top:1px}
+.tx-amt{font-weight:600;font-variant-numeric:tabular-nums;font-size:15px}
+.tx-del{border:none;background:none;color:var(--text3);cursor:pointer;padding:6px;border-radius:8px;display:flex;align-items:center}
+.tx-del:active{color:var(--danger)}
+.tx-del svg{width:16px;height:16px;stroke-width:1.8}
+.empty{padding:36px;text-align:center;color:var(--text2);font-size:14px;line-height:1.6}
+
+/* ── add screen ── */
+.add-wrap{padding:0 20px calc(var(--safe-bot)+32px);max-width:500px;margin:0 auto}
+.field2{margin-bottom:18px}
+.field2 label{display:block;font-size:13px;font-weight:600;color:var(--text2);margin-bottom:9px}
+.field2 input,.field2 select{width:100%;font-family:inherit;font-size:16px;color:var(--text);
+  background:var(--card);border:0.5px solid var(--line);border-radius:13px;
+  padding:14px 15px;-webkit-appearance:none;transition:border-color .2s}
+.field2 input:focus,.field2 select:focus{outline:none;border-color:var(--accent)}
+.cat-seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cat-btn{background:var(--card);border:0.5px solid var(--line);border-radius:13px;
+  padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:6px;
+  cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;color:var(--text);
+  transition:all .2s cubic-bezier(.4,0,.2,1)}
+.cat-btn svg{width:20px;height:20px;stroke-width:1.8}
+.cat-btn.on{color:#fff;border-color:transparent;transform:scale(1.03)}
+.sub-row{display:flex;gap:8px;flex-wrap:wrap}
+.sub-btn{font-family:inherit;font-size:13px;font-weight:600;padding:9px 16px;
+  border-radius:99px;border:0.5px solid var(--line);background:var(--card);
+  color:var(--text);cursor:pointer;transition:all .2s}
+.sub-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.rem-preview{background:var(--card);border-radius:14px;padding:16px 18px;
+  display:flex;align-items:center;justify-content:space-between;border:0.5px solid var(--line);margin-bottom:6px}
+.rp-lbl{font-size:13px;color:var(--text2);font-weight:500}
+.rp-val{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.rp-val.over{color:var(--danger)}
+
+/* ── settings screen ── */
+.set-wrap{padding:0 20px calc(var(--safe-bot)+32px)}
+.set-section{background:var(--card);border-radius:var(--r);overflow:hidden;margin-bottom:14px}
+.set-row{display:flex;align-items:center;padding:14px 16px;border-bottom:0.5px solid var(--line2);gap:14px}
+.set-row:last-child{border-bottom:none}
+.set-row .ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none;color:#fff}
+.set-row .ic svg{width:17px;height:17px;stroke-width:1.8}
+.set-row .lbl{flex:1;font-size:15px;font-weight:500}
+.set-row input{flex:1;text-align:right;font-family:inherit;font-size:14px;color:var(--text);
+  background:none;border:none;min-width:0}
+.set-row input:focus{outline:none;color:var(--accent)}
+.bud-section{background:var(--card);border-radius:var(--r);overflow:hidden;margin-bottom:14px}
+.bud-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:0.5px solid var(--line2)}
+.bud-row:last-child{border-bottom:none}
+.bud-ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none;color:#fff}
+.bud-ic svg{width:16px;height:16px;stroke-width:1.8}
+.bud-name{font-size:15px;font-weight:500;flex:1}
+.bud-input{width:100px;text-align:right;font-family:inherit;font-size:16px;font-weight:600;
+  color:var(--text);background:var(--card2);border:0.5px solid var(--line);border-radius:10px;
+  padding:8px 10px;font-variant-numeric:tabular-nums;-webkit-appearance:none}
+.bud-input:focus{outline:none;border-color:var(--accent)}
+.sec-lbl{font-size:13px;font-weight:600;color:var(--text2);padding:18px 0 8px;letter-spacing:.02em;text-transform:uppercase}
+.danger-zone{background:rgba(255,59,48,.07);border-radius:var(--r);padding:14px}
+
+/* ── toast ── */
+.toast{position:fixed;bottom:calc(var(--safe-bot)+28px);left:50%;
+  transform:translateX(-50%) translateY(16px);
+  background:var(--text);color:var(--bg);padding:13px 22px;border-radius:14px;
+  font-size:15px;font-weight:600;opacity:0;pointer-events:none;
+  transition:opacity .25s,transform .25s;z-index:200;white-space:nowrap;
+  display:flex;align-items:center;gap:8px}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast svg{width:17px;height:17px;stroke-width:2.5}
+</style>
+</head>
+<body>
+<div id="stack">
+
+  <!-- ══ SETUP ══ -->
+  <div class="screen active" id="s-setup">
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;padding:40px 24px">
+      <div class="setup-card">
+        <div class="setup-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <rect x="2" y="5" width="20" height="14" rx="3"/><line x1="2" y1="10" x2="22" y2="10"/>
+          </svg>
+        </div>
+        <h1>Budget</h1>
+        <p>Connect your GitHub repo once. Your token stays only in this browser.</p>
+        <div class="field"><label>GitHub username</label><input id="su-owner" placeholder="username" autocapitalize="none" autocomplete="off"></div>
+        <div class="field"><label>Repository name</label><input id="su-repo" placeholder="gro-bud" autocapitalize="none" autocomplete="off"></div>
+        <div class="field"><label>Branch</label><input id="su-branch" value="main" autocapitalize="none" autocomplete="off"></div>
+        <div class="field">
+          <label>Access token</label>
+          <input id="su-token" type="password" placeholder="github_pat_…" autocomplete="off">
+          <p class="note">GitHub → Settings → Developer settings → Fine-grained tokens. Scope: this repo only. Permission: Contents Read &amp; write.</p>
+        </div>
+        <div class="err" id="su-err"></div>
+        <button class="btn" id="su-btn" onclick="setupSave()">Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ HOME ══ -->
+  <div class="screen above" id="s-home">
+    <div class="home-top" style="padding:calc(var(--safe-top)+52px) 22px 0">
+      <div class="hero-err err" id="home-err"></div>
+      <div class="hero" id="hero">
+        <div class="sync-row">
+          <span class="sync-dot" id="syncDot"></span>
+          <span id="cycleLbl" style="font-size:12px">Loading…</span>
+        </div>
+        <div class="lbl">Remaining this cycle</div>
+        <div class="big" id="heroRem">—</div>
+        <div class="sub" id="heroSub"></div>
+      </div>
+      <div class="home-btns">
+        <button class="home-btn" onclick="push('s-ov')">
+          <div class="hb-ic" style="background:var(--accent)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round">
+              <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>
+            </svg>
+          </div>
+          <div>
+            <div class="hb-title">Overview</div>
+            <div class="hb-sub">Spending, chart &amp; history</div>
+          </div>
+          <div class="hb-arr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </button>
+        <button class="home-btn" onclick="push('s-add')">
+          <div class="hb-ic" style="background:var(--success)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+          </div>
+          <div>
+            <div class="hb-title">Add Expense</div>
+            <div class="hb-sub">Log a new transaction</div>
+          </div>
+          <div class="hb-arr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+        </button>
+      </div>
+      <div class="home-settings">
+        <button class="settings-btn" onclick="push('s-set')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ OVERVIEW ══ -->
+  <div class="screen above" id="s-ov">
+    <div class="topbar">
+      <button class="back-btn" onclick="pop()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
+      </button>
+      <span class="topbar-title">Overview</span>
+      <button class="topbar-action" onclick="loadAll()">Refresh</button>
+    </div>
+    <div class="ov-wrap">
+      <div class="ov-summary" id="ovSum">
+        <div class="lbl">Remaining this cycle</div>
+        <div class="big" id="ovRem">—</div>
+        <div class="sub" id="ovSub"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-inner">
+          <svg id="donutSvg" viewBox="0 0 140 140" width="130" height="130" style="flex:none"></svg>
+          <div class="legend" id="legend"></div>
+        </div>
+      </div>
+      <div class="cats-grid" id="catsGrid"></div>
+      <div class="sec">Recent expenses</div>
+      <div class="tx-list" id="txList"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- ══ ADD ══ -->
+  <div class="screen above" id="s-add">
+    <div class="topbar">
+      <button class="back-btn" onclick="pop()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
+      </button>
+      <span class="topbar-title">Add Expense</span>
+    </div>
+    <div class="add-wrap" style="padding-top:16px">
+      <div class="field2">
+        <label>Category</label>
+        <div class="cat-seg" id="addCatSeg"></div>
+      </div>
+      <div class="field2" id="subField">
+        <label>Type</label>
+        <div class="sub-row" id="addSubRow"></div>
+        <input id="addSubFree" placeholder="Describe this expense" style="margin-top:10px;display:none" autocapitalize="sentences">
+      </div>
+      <div class="field2">
+        <label>Amount (CAD $)</label>
+        <input id="addAmt" type="number" inputmode="decimal" step="0.01" placeholder="0.00">
+      </div>
+      <div class="field2">
+        <label>Date</label>
+        <input id="addDate" type="date">
+      </div>
+      <div class="field2">
+        <label>Note <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
+        <input id="addNote" placeholder="e.g. Costco run" autocapitalize="sentences">
+      </div>
+      <div class="rem-preview">
+        <div>
+          <div class="rp-lbl">Remaining after this</div>
+          <div class="rp-val" id="remVal">—</div>
+        </div>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--text3)" stroke-width="1.8" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="1" fill="var(--text3)" stroke="none"/>
+        </svg>
+      </div>
+      <div class="err" id="add-err" style="margin:12px 0 0"></div>
+      <button class="btn" id="addBtn" style="margin-top:14px" onclick="addSave()">Save expense</button>
+    </div>
+  </div>
+
+  <!-- ══ SETTINGS ══ -->
+  <div class="screen above" id="s-set">
+    <div class="topbar">
+      <button class="back-btn" onclick="pop()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
+      </button>
+      <span class="topbar-title">Settings</span>
+    </div>
+    <div class="set-wrap" style="padding-top:16px">
+      <div class="sec-lbl">Connection</div>
+      <div class="set-section">
+        <div class="set-row">
+          <div class="ic" style="background:#333">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round">
+              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+            </svg>
+          </div>
+          <span class="lbl">Repository</span>
+          <span style="font-size:14px;color:var(--text2)" id="stRepo">—</span>
+        </div>
+        <div class="set-row">
+          <div class="ic" style="background:var(--accent)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round">
+              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </div>
+          <span class="lbl">Token</span>
+          <input id="stToken" type="password" placeholder="Update token…" autocomplete="off">
+        </div>
+        <div class="set-row">
+          <div class="ic" style="background:var(--c-other)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"/><path d="M3 10h18M3 14h18M3 18h18"/>
+            </svg>
+          </div>
+          <span class="lbl">Branch</span>
+          <input id="stBranch" style="width:80px" autocapitalize="none">
+        </div>
+      </div>
+      <button class="btn" onclick="saveConn()" style="margin-bottom:20px">Save connection</button>
+
+      <div class="sec-lbl">Monthly budgets</div>
+      <div class="bud-section" id="budRows"></div>
+      <button class="btn" onclick="saveBudgets()" style="margin-bottom:20px">Save budgets</button>
+
+      <div class="danger-zone">
+        <button class="btn ghost" onclick="signOut()" style="background:none;color:var(--danger);border-color:rgba(255,59,48,.3)">Sign out of this device</button>
+        <p class="note" style="margin-top:8px;color:var(--danger);opacity:.7">Removes token from this browser. CSV data stays in GitHub.</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /stack -->
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+  <span id="toastMsg"></span>
+</div>
+
+<script>
+"use strict";
+/* ── cats ── */
+const CATS=[
+  {key:"Food",    color:"var(--c-food)",   hex:"#30d158",icon:"food",   subs:["Grocery","Eating out","Delivery"]},
+  {key:"Transit", color:"var(--c-transit)",hex:"#0a84ff",icon:"transit",subs:["Uber/Lyft","Bus/LRT"]},
+  {key:"Business",color:"var(--c-biz)",   hex:"#bf5af2",icon:"biz",    subs:[]},
+  {key:"Internet",color:"var(--c-net)",   hex:"#32ade6",icon:"net",    subs:[]},
+  {key:"Rent",    color:"var(--c-rent)",  hex:"#ff9f0a",icon:"rent",   subs:[]},
+  {key:"Other",   color:"var(--c-other)", hex:"#8e8e93",icon:"other",  subs:[],free:true},
+];
+const PATHS={
+  food:'<path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M17 2v8a3 3 0 0 0 0 6v6"/><path d="M17 2c2 0 3 2 3 5s-1 5-3 5"/>',
+  transit:'<path d="M5 17H3v-5l2-5h11l3 5v5h-2"/><circle cx="7.5" cy="17.5" r="2"/><circle cx="16.5" cy="17.5" r="2"/><path d="M9 17h5"/>',
+  biz:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>',
+  net:'<path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/><path d="M2 9a16 16 0 0 1 20 0"/>',
+  rent:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+  other:'<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
+  trash:'<path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
+};
+function ico(k,ex){return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ${ex||""}>${PATHS[k]||""}</svg>`;}
+function catOf(k){return CATS.find(c=>c.key===k)||CATS[CATS.length-1];}
+
+/* ── config ── */
+const CKEY="gh_bud_v3";
+let cfg=null;
+function loadCfg(){try{cfg=JSON.parse(localStorage.getItem(CKEY));}catch(e){cfg=null;}}
+function saveCfg(){localStorage.setItem(CKEY,JSON.stringify(cfg));}
+
+/* ── cycle ── */
+function cycle(){
+  const now=new Date(),d=now.getDate();
+  let s,e;
+  if(d>=27){s=new Date(now.getFullYear(),now.getMonth(),27);e=new Date(now.getFullYear(),now.getMonth()+1,26);}
+  else{s=new Date(now.getFullYear(),now.getMonth()-1,27);e=new Date(now.getFullYear(),now.getMonth(),26);}
+  return{start:s,end:e};
+}
+function inCycle(ds){const{start,end}=cycle();const d=new Date(ds+'T12:00:00');return d>=start&&d<=end;}
+function fmtD(ds){return new Date(ds+'T12:00:00').toLocaleDateString('en-CA',{month:'short',day:'numeric'});}
+function todayISO(){const d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
+function p2(n){return String(n).padStart(2,'0');}
+function CAD(n){return new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD',maximumFractionDigits:n%1?2:0}).format(n);}
+
+/* ── github ── */
+function b64e(s){return btoa(unescape(encodeURIComponent(s)));}
+function b64d(s){return decodeURIComponent(escape(atob(s.replace(/\n/g,''))));}
+async function ghGet(path){
+  const bust='&_='+Date.now();
+  const r=await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${path}?ref=${encodeURIComponent(cfg.branch)}${bust}`,
+    {cache:'no-store',headers:{'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Cache-Control':'no-cache','Pragma':'no-cache'}});
+  if(r.status===404)return{text:null,sha:null};
+  if(r.status===401||r.status===403)throw new Error('Token rejected — check Contents: Read and write permission.');
+  if(!r.ok)throw new Error('GitHub error ('+r.status+')');
+  const j=await r.json();return{text:b64d(j.content),sha:j.sha};
+}
+async function ghPut(path,text,sha,msg){
+  const body={message:msg,content:b64e(text),branch:cfg.branch};
+  if(sha)body.sha=sha;
+  const r=await fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${path}`,
+    {method:'PUT',headers:{'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'},
+    body:JSON.stringify(body)});
+  if(r.status===409)return'conflict';
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||'Write failed ('+r.status+')');}
+  return'ok';
+}
+
+/* ── csv ── */
+function csvParse(t){
+  const rows=[];let i=0,f='',row=[],q=false;
+  if(t.charCodeAt(0)===0xFEFF)t=t.slice(1);
+  for(;i<t.length;i++){
+    const c=t[i];
+    if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++;}else q=false;}else f+=c;continue;}
+    if(c==='"'){q=true;continue;}
+    if(c===','){row.push(f);f='';continue;}
+    if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;row.push(f);rows.push(row);f='';row=[];continue;}
+    f+=c;
+  }
+  if(f||row.length){row.push(f);rows.push(row);}
+  return rows.filter(r=>r.length>1||(r.length===1&&r[0]!==''));
+}
+function csvC(v){v=String(v==null?'':v);return/[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function csvS(rows){return rows.map(r=>r.map(csvC).join(',')).join('\n')+'\n';}
+const EH=['id','date','category','subcategory','amount','note'];
+const BH=['month','category','amount'];
+async function readCsv(path){
+  const f=await ghGet(path);
+  if(!f.text)return{rows:[],sha:null};
+  const raw=csvParse(f.text);
+  if(!raw.length)return{rows:[],sha:f.sha};
+  const cols=raw[0].map(s=>s.trim());
+  return{rows:raw.slice(1).map(r=>{const o={};cols.forEach((c,i)=>o[c]=r[i]||'');return o;}),sha:f.sha};
+}
+async function writeCsv(path,head,transform,msg){
+  for(let t=0;t<2;t++){
+    const cur=await readCsv(path);
+    const next=transform(cur.rows.slice());
+    const out=[head,...next.map(o=>head.map(h=>o[h]||''))];
+    const res=await ghPut(path,csvS(out),cur.sha,msg);
+    if(res==='ok')return next;
+  }
+  throw new Error('Save conflict — try again.');
+}
+
+/* ── state ── */
+let expenses=[],budgets=[];
+function budFor(cat){
+  const{start}=cycle();
+  const mk=start.getFullYear()+'-'+p2(start.getMonth()+1);
+  const r=budgets.find(b=>b.month===mk&&b.category===cat);
+  return r?parseFloat(r.amount)||0:0;
+}
+function spentFor(cat){return expenses.filter(x=>inCycle(x.date)&&x.category===cat).reduce((s,x)=>s+(parseFloat(x.amount)||0),0);}
+function totBud(){return CATS.reduce((s,c)=>s+budFor(c.key),0);}
+function totSpent(){return expenses.filter(x=>inCycle(x.date)).reduce((s,x)=>s+(parseFloat(x.amount)||0),0);}
+
+/* ── sync ui ── */
+const dot=document.getElementById('syncDot');
+function setSync(s){dot.className='sync-dot'+(s==='busy'?' busy':s==='err'?' err':'');}
+function showE(id,m){const e=document.getElementById(id);e.textContent=m;e.classList.add('show');}
+function clearE(id){document.getElementById(id).classList.remove('show');}
+let toastT;
+function toast(msg){
+  const t=document.getElementById('toast');
+  document.getElementById('toastMsg').textContent=msg;
+  t.classList.add('show');clearTimeout(toastT);
+  toastT=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+/* ── load ── */
+async function loadAll(){
+  setSync('busy');clearE('home-err');
+  try{
+    const[e,b]=await Promise.all([readCsv('expenses.csv'),readCsv('budgets.csv')]);
+    expenses=e.rows;budgets=b.rows;setSync('ok');
+    renderHome();renderOv();
+  }catch(er){setSync('err');showE('home-err',er.message);}
+}
+
+/* ── render home ── */
+function renderHome(){
+  const{start,end}=cycle();
+  document.getElementById('cycleLbl').textContent=fmtD(start.toISOString().slice(0,10))+' – '+fmtD(end.toISOString().slice(0,10));
+  const tb=totBud(),ts=totSpent(),rem=tb-ts;
+  const hero=document.getElementById('hero');
+  hero.className='hero'+(rem<0?' over':'');
+  document.getElementById('heroRem').textContent=(rem<0?'-':'')+CAD(Math.abs(rem));
+  document.getElementById('heroSub').textContent=CAD(ts)+' spent of '+CAD(tb)+' budget';
+}
+
+/* ── render overview ── */
+function renderOv(){
+  const tb=totBud(),ts=totSpent(),rem=tb-ts;
+  const sum=document.getElementById('ovSum');
+  sum.className='ov-summary'+(rem<0?' over':'');
+  document.getElementById('ovRem').textContent=(rem<0?'-':'')+CAD(Math.abs(rem));
+  document.getElementById('ovSub').textContent=CAD(ts)+' spent of '+CAD(tb)+' budget';
+  renderDonut();renderCats();renderTx();
+}
+
+/* ── donut ── */
+function renderDonut(){
+  const svg=document.getElementById('donutSvg');
+  const leg=document.getElementById('legend');
+  svg.innerHTML='';leg.innerHTML='';
+  const cx=70,cy=70,R=58,r=38,tau=Math.PI*2;
+  const ts=totSpent(),tb=totBud();
+  const slices=CATS.map(c=>({key:c.key,hex:c.hex,val:spentFor(c.key)})).filter(s=>s.val>0);
+  const remV=Math.max(0,tb-ts);
+  const all=[...slices,...(remV>0?[{key:'_rem',hex:'#d1d1d6',val:remV}]:[])];
+  const total=all.reduce((s,x)=>s+x.val,0);
+  if(!total){
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',70);c.setAttribute('cy',70);c.setAttribute('r',R);
+    c.setAttribute('fill','#d1d1d6');c.setAttribute('fill-opacity','.3');
+    svg.appendChild(c);return;
+  }
+  let angle=-Math.PI/2;
+  all.forEach(sl=>{
+    const frac=sl.val/total,a2=angle+frac*tau,large=frac>.5?1:0;
+    const x1=cx+R*Math.cos(angle),y1=cy+R*Math.sin(angle);
+    const x2=cx+R*Math.cos(a2),y2=cy+R*Math.sin(a2);
+    const i1x=cx+r*Math.cos(angle),i1y=cy+r*Math.sin(angle);
+    const i2x=cx+r*Math.cos(a2),i2y=cy+r*Math.sin(a2);
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d',`M${x1},${y1}A${R},${R} 0 ${large} 1 ${x2},${y2}L${i2x},${i2y}A${r},${r} 0 ${large} 0 ${i1x},${i1y}Z`);
+    p.setAttribute('fill',sl.hex);p.setAttribute('stroke','var(--bg)');p.setAttribute('stroke-width','2');
+    svg.appendChild(p);angle=a2;
+  });
+  // center
+  const addText=(y,txt,sz,w,fill)=>{const el=document.createElementNS('http://www.w3.org/2000/svg','text');
+    el.setAttribute('x',70);el.setAttribute('y',y);el.setAttribute('text-anchor','middle');
+    el.setAttribute('font-size',sz);el.setAttribute('font-weight',w);el.setAttribute('fill',fill);
+    el.setAttribute('font-family','-apple-system,sans-serif');el.textContent=txt;svg.appendChild(el);};
+  addText(65,'spent','11','400','#8e8e93');
+  addText(81,new Intl.NumberFormat('en-CA',{notation:'compact',maximumFractionDigits:1,style:'currency',currency:'CAD'}).format(ts),'14','700','var(--text)');
+  // legend
+  slices.forEach(sl=>{
+    const pct=Math.round(sl.val/total*100);
+    const row=document.createElement('div');row.className='leg-item';
+    row.innerHTML=`<span class="leg-dot" style="background:${sl.hex}"></span><span class="leg-name">${sl.key}</span><span class="leg-pct">${pct}%</span>`;
+    leg.appendChild(row);
+  });
+  if(remV>0){
+    const row=document.createElement('div');row.className='leg-item';
+    row.innerHTML=`<span class="leg-dot" style="background:#d1d1d6"></span><span class="leg-name" style="color:var(--text2)">Remaining</span><span class="leg-pct">${Math.round(remV/total*100)}%</span>`;
+    leg.appendChild(row);
+  }
+}
+
+/* ── cat cards ── */
+function renderCats(){
+  const g=document.getElementById('catsGrid');g.innerHTML='';
+  CATS.forEach(c=>{
+    const b=budFor(c.key),s=spentFor(c.key),rem=b-s,pct=b>0?Math.min(100,s/b*100):0,over=s>b&&b>0;
+    const el=document.createElement('div');el.className='cat-card';
+    el.innerHTML=`<div class="cat-head">
+      <div class="cat-ic" style="background:${c.color}">${ico(c.icon)}</div>
+      <span class="cat-name">${c.key}</span>
+      <span class="cat-rem${rem<0?' over':''}">${CAD(Math.abs(rem))}${rem<0?' OV':''}</span>
+    </div>
+    <div class="cat-bar"><i style="width:${pct}%;background:${over?'var(--danger)':c.color}"></i></div>
+    <div class="cat-meta"><span>${CAD(s)} spent</span><span>${b>0?CAD(b)+' bud.':'No budget'}</span></div>`;
+    g.appendChild(el);
+  });
+}
+
+/* ── tx list ── */
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function renderTx(){
+  const list=document.getElementById('txList');
+  const items=expenses.filter(x=>inCycle(x.date)).sort((a,b)=>(b.date+b.id).localeCompare(a.date+a.id));
+  if(!items.length){list.innerHTML='<div class="empty">No expenses this cycle yet.</div>';return;}
+  list.innerHTML='';
+  items.forEach(x=>{
+    const c=catOf(x.category);
+    const row=document.createElement('div');row.className='tx-row';
+    row.innerHTML=`<div class="tx-ic" style="background:${c.color}">${ico(c.icon)}</div>
+      <div class="tx-info"><div class="tx-t">${esc(x.note||x.subcategory||c.key)}</div>
+      <div class="tx-s">${esc(x.subcategory||c.key)} · ${fmtD(x.date)}</div></div>
+      <div class="tx-amt">${CAD(parseFloat(x.amount)||0)}</div>
+      <button class="tx-del" aria-label="Delete">${ico('trash')}</button>`;
+    row.querySelector('.tx-del').onclick=()=>delExp(x.id);
+    list.appendChild(row);
+  });
+}
+async function delExp(id){
+  setSync('busy');
+  try{
+    expenses=await writeCsv('expenses.csv',EH,rows=>rows.filter(r=>r.id!==id),'Delete expense');
+    setSync('ok');renderHome();renderOv();toast('Expense removed');
+  }catch(e){setSync('err');showE('home-err',e.message);}
+}
+
+/* ── add expense ── */
+let selCat='Food',selSub='Grocery';
+function buildAdd(){
+  const seg=document.getElementById('addCatSeg');seg.innerHTML='';
+  CATS.forEach(c=>{
+    const b=document.createElement('button');b.type='button';b.className='cat-btn';b.dataset.k=c.key;
+    b.innerHTML=ico(c.icon)+'<span>'+c.key+'</span>';
+    b.onclick=()=>{selCat=c.key;refreshCat();};
+    seg.appendChild(b);
+  });
+  document.getElementById('addDate').value=todayISO();
+  document.getElementById('addAmt').value='';
+  document.getElementById('addNote').value='';
+  document.getElementById('addSubFree').value='';
+  clearE('add-err');
+  selCat='Food';selSub='Grocery';
+  refreshCat();
+}
+function refreshCat(){
+  document.querySelectorAll('.cat-btn').forEach(b=>{
+    const on=b.dataset.k===selCat,c=catOf(b.dataset.k);
+    b.classList.toggle('on',on);
+    b.style.background=on?c.color:'';b.style.color=on?'#fff':'';
+  });
+  const c=catOf(selCat);
+  const subRow=document.getElementById('addSubRow');
+  const subFree=document.getElementById('addSubFree');
+  const subField=document.getElementById('subField');
+  if(c.free){subField.style.display='';subRow.style.display='none';subFree.style.display='';selSub='';}
+  else if(c.subs.length){
+    subField.style.display='';subRow.style.display='flex';subFree.style.display='none';
+    subRow.innerHTML='';
+    c.subs.forEach((s,i)=>{
+      const b=document.createElement('button');b.type='button';b.className='sub-btn';b.textContent=s;
+      if(i===0){b.classList.add('on');selSub=s;}
+      b.onclick=()=>{selSub=s;document.querySelectorAll('.sub-btn').forEach(x=>x.classList.remove('on'));b.classList.add('on');updateRem();};
+      subRow.appendChild(b);
+    });
+  }else{subField.style.display='none';selSub='';}
+  updateRem();
+}
+function updateRem(){
+  const c=catOf(selCat),b=budFor(c.key),s=spentFor(c.key);
+  const amt=parseFloat(document.getElementById('addAmt')?.value)||0;
+  const rem=b-s-amt;
+  const el=document.getElementById('remVal');
+  if(!el)return;
+  el.textContent=CAD(rem);el.className='rp-val'+(rem<0?' over':'');
+}
+document.getElementById('addAmt').addEventListener('input',updateRem);
+
+async function addSave(){
+  clearE('add-err');
+  const amt=parseFloat(document.getElementById('addAmt').value);
+  if(!(amt>0)){showE('add-err','Enter a valid amount.');return;}
+  const c=catOf(selCat);
+  let sub=selSub;
+  if(c.free){sub=document.getElementById('addSubFree').value.trim();if(!sub){showE('add-err','Describe this expense.');return;}}
+  const exp={id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    date:document.getElementById('addDate').value||todayISO(),
+    category:selCat,subcategory:sub,
+    amount:amt.toFixed(2),note:document.getElementById('addNote').value.trim()};
+  const btn=document.getElementById('addBtn');
+  btn.disabled=true;btn.textContent='Saving…';
+  try{
+    expenses=await writeCsv('expenses.csv',EH,rows=>{rows.push(exp);return rows;},'Add '+selCat+' $'+exp.amount);
+    btn.disabled=false;btn.textContent='Save expense';
+    toast('Expense saved');
+    setTimeout(()=>{pop();renderHome();renderOv();},700);
+  }catch(e){btn.disabled=false;btn.textContent='Save expense';showE('add-err',e.message);}
+}
+
+/* ── settings ── */
+function renderSettings(){
+  document.getElementById('stRepo').textContent=cfg?cfg.owner+'/'+cfg.repo:'—';
+  document.getElementById('stBranch').value=cfg?cfg.branch:'main';
+  document.getElementById('stToken').value='';
+  const{start}=cycle();
+  const mk=start.getFullYear()+'-'+p2(start.getMonth()+1);
+  const wrap=document.getElementById('budRows');wrap.innerHTML='';
+  CATS.forEach(c=>{
+    const row=document.createElement('div');row.className='bud-row';
+    row.innerHTML=`<div class="bud-ic" style="background:${c.color}">${ico(c.icon)}</div>
+      <span class="bud-name">${c.key}</span>
+      <input class="bud-input" type="number" inputmode="decimal" step="0.01" data-cat="${c.key}" data-month="${mk}" value="${budFor(c.key)||''}" placeholder="0">`;
+    wrap.appendChild(row);
+  });
+}
+function saveConn(){
+  const tok=document.getElementById('stToken').value.trim();
+  const branch=document.getElementById('stBranch').value.trim()||'main';
+  if(cfg){cfg.branch=branch;if(tok)cfg.token=tok;}
+  saveCfg();toast('Connection saved');
+}
+async function saveBudgets(){
+  const inputs=[...document.querySelectorAll('#budRows .bud-input')];
+  const{start}=cycle();
+  const mk=start.getFullYear()+'-'+p2(start.getMonth()+1);
+  try{
+    budgets=await writeCsv('budgets.csv',BH,rows=>{
+      rows=rows.filter(r=>r.month!==mk);
+      inputs.forEach(i=>{const v=parseFloat(i.value);if(v>0)rows.push({month:mk,category:i.dataset.cat,amount:v.toFixed(2)});});
+      return rows;
+    },'Set budgets '+mk);
+    toast('Budgets saved');renderHome();renderOv();
+  }catch(e){alert(e.message);}
+}
+function signOut(){
+  if(!confirm('Remove token from this browser?'))return;
+  localStorage.removeItem(CKEY);cfg=null;
+  // go back to setup
+  screenHistory.length=0;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active','below'));
+  document.getElementById('s-setup').classList.add('active');
+}
+
+/* ── setup ── */
+async function setupSave(){
+  clearE('su-err');
+  const owner=document.getElementById('su-owner').value.trim();
+  const repo=document.getElementById('su-repo').value.trim();
+  const branch=document.getElementById('su-branch').value.trim()||'main';
+  const token=document.getElementById('su-token').value.trim();
+  if(!owner||!repo||!token){showE('su-err','Fill in all fields.');return;}
+  const btn=document.getElementById('su-btn');btn.disabled=true;btn.textContent='Connecting…';
+  cfg={owner,repo,branch,token};
+  try{
+    await loadAll();saveCfg();
+    btn.disabled=false;btn.textContent='Connect';
+    push('s-home');
+  }catch(e){
+    cfg=null;btn.disabled=false;btn.textContent='Connect';
+    showE('su-err',e.message);
+  }
+}
+
+/* ── navigation ── */
+const screenHistory=[];
+function push(id){
+  if(id==='s-add')buildAdd();
+  if(id==='s-set')renderSettings();
+  if(id==='s-ov')renderOv();
+  const cur=document.querySelector('.screen.active');
+  if(cur){cur.classList.remove('active');cur.classList.add('below');screenHistory.push(cur.id);}
+  const next=document.getElementById(id);
+  next.classList.remove('above','below');next.classList.add('active');
+  next.scrollTop=0;
+}
+function pop(){
+  const cur=document.querySelector('.screen.active');
+  if(cur){cur.classList.remove('active');cur.classList.add('above');}
+  const prevId=screenHistory.pop();
+  if(prevId){
+    const prev=document.getElementById(prevId);
+    prev.classList.remove('below');prev.classList.add('active');
+  }
+}
+
+/* ── init ── */
+loadCfg();
+if(cfg){
+  document.getElementById('s-setup').classList.remove('active');
+  document.getElementById('s-setup').classList.add('above');
+  document.getElementById('s-home').classList.remove('above');
+  document.getElementById('s-home').classList.add('active');
+  loadAll();
+}
+</script>
+</body>
+</html>
