@@ -764,10 +764,15 @@ async function addSave(){
   const btn=document.getElementById('addBtn');
   btn.disabled=true;btn.textContent='Saving…';
   try{
-    expenses=await writeCsv('expenses.csv',EH,rows=>{rows.push(exp);return rows;},'Add '+selCat+' $'+exp.amount);
-    btn.disabled=false;btn.textContent='Save expense';
+    await writeCsv('expenses.csv',EH,rows=>{rows.push(exp);return rows;},'Add '+selCat+' $'+exp.amount);
+    await loadAll();
+    btn.disabled=false;
+    btn.textContent='✓ Saved';
     toast('Expense saved');
-    setTimeout(()=>{pop();renderHome();renderOv();},700);
+    setTimeout(()=>{
+      btn.textContent='Save expense';
+      pop();
+    },500);
   }catch(e){btn.disabled=false;btn.textContent='Save expense';showE('add-err',e.message);}
 }
 
